@@ -1,0 +1,38 @@
+#!/bin/bash
+#
+# Initialize a new database for secretman.
+
+set -euo pipefail
+
+run() {
+  (set -x; "$@")
+}
+
+SECRETMAN_ROOT=$(realpath "$(dirname "$0")")
+
+source "$SECRETMAN_ROOT/load-env.sh"
+
+if [ -d "$SECRETMAN_DATA" ]
+then
+  echo "Directory $SECRETMAN_DATA is present"
+  exit 1
+fi
+
+# Database directory
+echo "Initializing $SECRETMAN_DATA ..."
+run mkdir -p "$SECRETMAN_DATA"
+run securefs create --format 3 "$SECRETMAN_DATA"
+
+
+if [ ! -f "$SECRETMAN_CONFIG" ]
+then
+  echo "Writing '$SECRETMAN_CONFIG' with default config ..."
+  run mkdir -p "$(dirname "$SECRETMAN_CONFIG")"
+  cat > "$SECRETMAN_CONFIG" <<'EOF'
+# GPG key to encrypt backups.
+# BACKUPS_GPG_KEY=key@example.com
+
+# Number of recent backups to keep
+BACKUPS_COUNT=5
+EOF
+fi
