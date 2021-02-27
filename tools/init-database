@@ -9,8 +9,7 @@ run() {
 }
 
 SECRETMAN_ROOT=$(realpath "$(dirname "$0")")
-
-source "$SECRETMAN_ROOT/load-env.sh"
+source "$SECRETMAN_ROOT/lib/load-env.sh"
 
 if [ -d "$SECRETMAN_DATA" ]
 then

@@ -1,0 +1,47 @@
+#!/bin/bash
+
+set -euo pipefail
+
+SECRETMAN_ROOT=$(realpath "$(dirname "$0")")
+source "$SECRETMAN_ROOT/lib/load-env.sh"
+
+SECUREFS_ROOT=$(mktemp -d)
+SECUREFS_TMP="${XDG_RUNTIME_DIR:-/tmp}/secretman"
+
+cleanup() {
+  set +e
+  cd /
+  while ! fusermount -u "$SECUREFS_ROOT"
+  do
+    set -x
+    fuser --ismountpoint --mount -vk "$SECUREFS_ROOT"
+    sleep 1
+  done
+
+  rmdir "$SECUREFS_ROOT"
+}
+
+# Launch securefs as a background process.
+mkdir --mode 700 -p "$SECUREFS_TMP"
+securefs mount --background --log "$SECUREFS_TMP/log" "$SECRETMAN_DATA" "$SECUREFS_ROOT"
+
+trap cleanup EXIT
+
+DATABASE_PATH="$SECUREFS_ROOT/data"
+
+# Initialize a git repository if it is missing.
+if [ ! -d "$DATABASE_PATH" ]
+then
+  mkdir -p "$DATABASE_PATH"
+  cd "$DATABASE_PATH"
+  git init
+fi
+
+cd "$DATABASE_PATH"
+
+# Start a new shell.
+export SECRETMAN_ROOT
+HOME="$SECUREFS_ROOT" bash --rcfile "$SECRETMAN_ROOT/../shell/init.sh" || true
+
+# Backup data if there are changes.
+"$SECRETMAN_ROOT/lib/db-backup.sh" "$DATABASE_PATH"
