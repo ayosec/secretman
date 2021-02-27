@@ -1,0 +1,93 @@
+#!/bin/bash
+#
+# Copy lines in a file to the clipboard.
+#
+# Usage:
+#
+#   $ tools/copy-lines <input>
+
+set -euo pipefail
+
+if [ $# -ne 1 ]
+then
+  echo "Usage: $0 input-file"
+  exit 1
+fi
+
+INPUT="$1"
+TMPFILE=$(mktemp)
+
+cleanup() {
+  rm -f "$TMPFILE"
+}
+
+set_clipboard() {
+  timeout --foreground "$1" \
+    xclip -i -loop 1 -quiet -selection clipboard \
+    &> "$TMPFILE" \
+    || (
+      ret=$?
+      if [ $ret -eq 124 ]
+      then
+        echo "[ERROR] clipboard timeout"
+      else
+        echo
+        cat "$TMPFILE"
+      fi
+      exit $ret
+    )
+}
+
+trap cleanup EXIT
+
+# Check if there is a clipboard watcher running in this X11 server.
+
+detect_clipboard_watcher() {
+  printf "Checking if clipboard is being watched ..."
+  set_clipboard "0.3s" <<<"" > /dev/null
+
+  if [ $? -ne 124 ]
+  then
+    echo
+    echo "[ERROR] Some process is watching the clipboard."
+    echo "[ERROR] Please pause it before using this script."
+    exit 1
+  else
+    printf '\r\e[K'
+  fi
+}
+
+(set +e; detect_clipboard_watcher)
+
+# Read the file line by line, and copy them to the clipboard.
+#
+# * Lines with '[show]' prefix are written to stdout.
+# * Empty lines are ignored.
+# * Read is stopped when a line with --- is found.
+
+lineno=0
+while read -r LINE
+do
+  (( lineno = lineno + 1 ))
+
+  if [[ $LINE =~ ^[[:space:]]*$ ]]
+  then
+    continue
+  fi
+
+  if [[ "$LINE" =~ ^---+[[:space:]]*$ ]]
+  then
+    break
+  fi
+
+  if [ "${LINE:0:6}" = '[show]' ]
+  then
+    LINE=${LINE:6}
+    label="$LINE"
+  else
+    label="(line $lineno)"
+  fi
+
+  echo "[$(date +%T)] $label"
+  echo -n "$LINE" | set_clipboard 30s
+done < "$INPUT"
