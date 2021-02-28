@@ -10,6 +10,6 @@ shopt -s histverify
 
 PS1='\[\e[1m\][\t | secretman] \w >\[\e[m\] '
 
-PATH="$(dirname "${BASH_SOURCE[@]}"):$PATH"
+PATH="$(dirname "${BASH_SOURCE[0]}"):$PATH"
 
 alias ls='ls --color=auto --group-directories-first -F'
