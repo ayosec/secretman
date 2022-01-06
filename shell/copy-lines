@@ -84,6 +84,11 @@ do
   then
     LINE=${LINE:6}
     label="$LINE"
+  elif [ "${LINE:0:6}" = '[totp]' ]
+  then
+    read -a OATHARGS <<<"${LINE:6}"
+    LINE=$(oathtool "${OATHARGS[@]}")
+    label="[TOTP] $LINE"
   else
     label="(line $lineno)"
   fi
